@@ -79,14 +79,6 @@
 
 
 
-<style>
-  #pixel-consent{position:fixed;z-index:9999;left:14px;right:14px;bottom:14px;margin:auto;max-width:560px;padding:14px 16px;border:1px solid #ffffff35;border-radius:14px;background:#101827f2;color:#fff;font:13px/1.45 system-ui,sans-serif;box-shadow:0 8px 30px #0008;backdrop-filter:blur(12px)}
-  #pixel-consent p{margin:0 0 10px}
-  #pixel-consent .consent-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
-  #pixel-consent button{border:1px solid #ffffff55;border-radius:8px;padding:8px 13px;font-weight:700;cursor:pointer}
-  #pixel-accept{background:#fff;color:#111827}
-  #pixel-decline{background:transparent;color:#fff}
-</style>
 </head>
 <body>
 <main class="card">
@@ -164,43 +156,5 @@
   });
 </script>
 
-<div id="pixel-consent" role="dialog" aria-label="Privacy choices" aria-live="polite">
-  <p>Allow Meta Pixel to measure page visits? It will load only if you choose Accept. You can decline and still use the Telegram link.</p>
-  <div class="consent-actions">
-    <button id="pixel-decline" type="button">Decline</button>
-    <button id="pixel-accept" type="button">Accept</button>
-  </div>
-</div>
-
-<script>
-(function () {
-  const pixelId = '1649745916820187';
-  const banner = document.getElementById('pixel-consent');
-  function loadMetaPixel() {
-    if (window.fbq) return;
-    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
-    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
-    (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', pixelId);
-    fbq('track', 'PageView');
-  }
-  try {
-    const choice = localStorage.getItem('meta_pixel_consent');
-    if (choice === 'accepted') { loadMetaPixel(); banner.remove(); }
-    else if (choice === 'declined') { banner.remove(); }
-  } catch (_) {}
-  document.getElementById('pixel-accept').addEventListener('click', function () {
-    try { localStorage.setItem('meta_pixel_consent', 'accepted'); } catch (_) {}
-    loadMetaPixel();
-    banner.remove();
-  });
-  document.getElementById('pixel-decline').addEventListener('click', function () {
-    try { localStorage.setItem('meta_pixel_consent', 'declined'); } catch (_) {}
-    banner.remove();
-  });
-})();
-</script>
 </body>
 </html>
