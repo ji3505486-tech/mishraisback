@@ -152,6 +152,15 @@
       return;
     }
     lastJoinAttempt = now;
+    // Diagnostic only: never block Telegram navigation or send a Meta conversion.
+    try {
+      fetch('/api/traffic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webdriver: navigator.webdriver === true }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (_) {}
   });
 </script>
 
