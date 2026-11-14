@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
 
   const expected = process.env.TELEGRAM_SETUP_KEY_V2;
-  const supplied = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  const supplied = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!expected || supplied !== expected) return res.status(401).json({ ok: false, error: "Unauthorized" });
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
