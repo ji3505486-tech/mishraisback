@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Method not allowed" });
   const expected = process.env.TELEGRAM_DASHBOARD_KEY;
-  const supplied = String(req.headers.authorization || "").replace(/^Bearer\\s+/i, "");
+  const supplied = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!expected || supplied !== expected) return res.status(401).json({ ok: false, error: "Unauthorized" });
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   }
 
   async function redis(command) {
-    const r = await fetch(url.replace(/\\/$/, "") + "/" + command.map(encodeURIComponent).join("/"), {
+    const r = await fetch(url.replace(/\/$/, "") + "/" + command.map(encodeURIComponent).join("/"), {
       headers: { Authorization: "Bearer " + redisToken }
     });
     if (!r.ok) throw new Error("Redis request failed");
