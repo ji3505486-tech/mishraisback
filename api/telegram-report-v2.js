@@ -18,9 +18,11 @@ module.exports = async function handler(req, res) {
     const r = await fetch(url.replace(/\/$/, "") + "/" + command.map(encodeURIComponent).join("/"), {
       headers: { Authorization: "Bearer " + redisToken }
     });
-    if (!r.ok) throw new Error("Redis request failed");
-    const j = await r.json();
-    if (j.error) throw new Error("Redis command failed");
+    const raw = await r.text();
+    let j = {};
+    try { j = JSON.parse(raw); } catch (_) {}
+    if (!r.ok) throw new Error("Redis HTTP " + r.status + ": " + String(j.error || raw || "request failed").slice(0, 180));
+    if (j.error) throw new Error("Redis command: " + String(j.error).slice(0, 180));
     return j.result;
   }
   async function telegram(method) {
@@ -75,7 +77,7 @@ module.exports = async function handler(req, res) {
       recent_events: (recentRaw || []).map((x) => { try { return JSON.parse(x); } catch (_) { return null; } }).filter(Boolean),
       note: "Join requests are pending requests; accepted_joins count membership status changes. Historical events are not backfilled. Only aggregate event counts are stored."
     });
-  } catch (_) {
-    return res.status(503).json({ ok: false, error: "Could not load Telegram v2 report", failed_stage: stage });
+  } catch (err) {
+    return res.status(503).json({ ok: false, error: "Could not load Telegram v2 report", failed_stage: stage, diagnostic: String(err && err.message || "unknown error").slice(0, 220) });
   }
 };
