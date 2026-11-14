@@ -65,7 +65,7 @@ async function load(){
  try{
   const r=await fetch("/api/telegram-report-v2",{headers:{Authorization:"Bearer "+dashboardKey},cache:"no-store"});
   const d=await r.json();
-  if(!r.ok||!d.ok)throw new Error(d.error||"Could not load report");
+  if(!r.ok||!d.ok)throw new Error((d.error||"Could not load report")+(d.failed_stage?" · Stage: "+d.failed_stage:"")+" · HTTP "+r.status);
   render(d);$("status").textContent="";$("login").hidden=true;$("app").hidden=false;
  }catch(e){$("status").textContent="Error: "+e.message}
  finally{$("refresh").disabled=false}
