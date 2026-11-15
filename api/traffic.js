@@ -35,27 +35,58 @@ module.exports = async function handler(req, res) {
     .digest("hex")
     .slice(0, 32);
   const day = new Date().toISOString().slice(0, 10);
-
-  const redis = async (command) => {
-    const response = await fetch(redisUrl.replace(/\/$/, "") + "/" + command.map(encodeURIComponent).join("/"), {
-      headers: { Authorization: "Bearer " + redisToken }
-    });
-    if (!response.ok) throw new Error("Redis request failed");
-    const result = await response.json();
-    if (result.error) throw new Error("Redis command failed");
-    return result;
-  };
+  const dailyKey = "scbc:daily:" + day + ":";
 
   try {
     const payload = req.body && typeof req.body === "object" ? req.body : {};
-    const dedupe = await redis(["SET", "scbc:click:" + fingerprint, "1", "EX", "3", "NX"]);
-    const duplicate = dedupe.result !== "OK";
     const webdriver = payload.webdriver === true;
-    const suspicious = webdriver || duplicate;
-    const bucket = suspicious ? "suspicious" : "observed";
 
-    await redis(["INCR", "scbc:daily:" + day + ":" + bucket]);
-    await redis(["EXPIRE", "scbc:daily:" + day + ":" + bucket, "7776000"]);
+    // Run dedupe, counter increment and expiry in one Upstash pipeline request.
+    const commands = [
+      ["SET", "scbc:click:" + fingerprint, "1", "EX", "3", "NX"],
+      ["INCR", dailyKey + (webdriver ? "suspicious" : "observed")],
+      ["EXPIRE", dailyKey + (webdriver ? "suspicious" : "observed"), "7776000"]
+    ];
+    const response = await fetch(redisUrl.replace(/\/$/, "") + "/pipeline", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + redisToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(commands)
+    });
+    if (!response.ok) throw new Error("Redis pipeline request failed");
+
+    const results = await response.json();
+    if (!Array.isArray(results) || results.length !== commands.length ||
+        results.some((item) => !item || item.error)) {
+      throw new Error("Redis pipeline command failed");
+    }
+
+    const duplicate = results[0].result !== "OK";
+    const bucket = (webdriver || duplicate) ? "suspicious" : "observed";
+
+    // If the click was a duplicate but webdriver was false, move the count
+    // from observed to suspicious using one additional pipeline request.
+    if (duplicate && !webdriver) {
+      const adjustment = await fetch(redisUrl.replace(/\/$/, "") + "/pipeline", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + redisToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify([
+          ["DECR", dailyKey + "observed"],
+          ["INCR", dailyKey + "suspicious"],
+          ["EXPIRE", dailyKey + "suspicious", "7776000"]
+        ])
+      });
+      if (!adjustment.ok) throw new Error("Redis adjustment failed");
+      const adjusted = await adjustment.json();
+      if (!Array.isArray(adjusted) || adjusted.some((item) => !item || item.error)) {
+        throw new Error("Redis adjustment command failed");
+      }
+    }
 
     return res.status(200).json({
       ok: true,
