@@ -158,10 +158,12 @@
   }
   let savedConsent = null;
   try { savedConsent = localStorage.getItem(consentKey); } catch (_) {}
-  window.candyMetaConsent = savedConsent === 'accepted' ? 'accepted' : 'rejected';
+  window.candyMetaConsent = savedConsent === 'accepted' ? 'accepted' : (savedConsent === 'rejected' ? 'rejected' : null);
   if (savedConsent === 'accepted') {
     window.loadCandyMetaPixel();
-  } else if (savedConsent !== 'rejected') {
+  } else if (savedConsent === 'rejected') {
+    consentPanel.hidden = true;
+  } else {
     consentPanel.hidden = false;
   }
   document.getElementById('acceptTracking').addEventListener('click', () => setTrackingConsent('accepted'));
