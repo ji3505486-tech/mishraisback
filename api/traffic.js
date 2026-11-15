@@ -40,10 +40,14 @@ module.exports = async function handler(req, res) {
   try {
     const payload = req.body && typeof req.body === "object" ? req.body : {};
     const webdriver = payload.webdriver === true;
+    const rateKey = "scbc:rate:" + fingerprint;
 
-    // Run dedupe, counter increment and expiry in one Upstash pipeline request.
+    // Limit diagnostic API submissions to 12 per fingerprint per 60-second
+    // inactivity window. Only a salted hash is used as the Redis key.
     const commands = [
       ["SET", "scbc:click:" + fingerprint, "1", "EX", "3", "NX"],
+      ["INCR", rateKey],
+      ["EXPIRE", rateKey, "60"],
       ["INCR", dailyKey + (webdriver ? "suspicious" : "observed")],
       ["EXPIRE", dailyKey + (webdriver ? "suspicious" : "observed"), "7776000"]
     ];
@@ -61,6 +65,17 @@ module.exports = async function handler(req, res) {
     if (!Array.isArray(results) || results.length !== commands.length ||
         results.some((item) => !item || item.error)) {
       throw new Error("Redis pipeline command failed");
+    }
+
+    const requestCount = Number(results[1].result);
+    if (!Number.isFinite(requestCount)) throw new Error("Invalid rate-limit result");
+    if (requestCount > 12) {
+      res.setHeader("Retry-After", "60");
+      return res.status(429).json({
+        ok: false,
+        rateLimited: true,
+        error: "Too many diagnostic requests. Please try again shortly."
+      });
     }
 
     const duplicate = results[0].result !== "OK";
@@ -92,8 +107,9 @@ module.exports = async function handler(req, res) {
       ok: true,
       classification: bucket,
       duplicate,
+      rateLimit: { limit: 12, windowSeconds: 60, remaining: Math.max(0, 12 - requestCount) },
       signals: { webdriver, rapidRepeat: duplicate },
-      note: "Diagnostic signals only. No visitor is blocked and no Meta conversion event is sent."
+      note: "Rate limiting protects this diagnostic endpoint only. It does not block Telegram navigation or prevent Meta ad-click charges."
     });
   } catch (_) {
     return res.status(503).json({ ok: false, error: "Traffic monitor temporarily unavailable" });
