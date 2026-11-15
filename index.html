@@ -75,27 +75,39 @@
   .dot { width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);opacity:.4; }
   .dot.active { opacity:1;transform:scale(1.25); }
   @media (prefers-reduced-motion:reduce) { *,*:before {animation:none!important;transition:none!important;} }
+
+  .privacy-consent { position:fixed;z-index:9999;left:16px;right:16px;bottom:16px;margin:auto;max-width:680px;
+    padding:14px 16px;border:1px solid #ffffff35;border-radius:14px;background:#101522f2;color:#f7f8fc;
+    box-shadow:0 12px 40px #0009;text-align:left;font-size:12px;line-height:1.5;backdrop-filter:blur(12px); }
+  .privacy-consent p { margin:0 0 10px;color:#e7eaf2; }
+  .privacy-consent a { color:#a9d7ff;text-decoration:underline; }
+  .privacy-actions { display:flex;gap:8px;flex-wrap:wrap; }
+  .privacy-actions button { border:1px solid #ffffff55;border-radius:9px;padding:9px 13px;font-weight:750;cursor:pointer; }
+  .privacy-accept { background:#eaf2ff;color:#111827; }
+  .privacy-reject { background:transparent;color:#fff; }
+  @media (max-width:480px) { .privacy-consent {left:10px;right:10px;bottom:10px;padding:12px;} .privacy-actions button {flex:1;} }
+
 </style>
 
 
 
 
-<!-- Meta Pixel Code -->
+<!-- Meta Pixel is loaded only after optional tracking consent. -->
 <script>
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
-s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
-(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1649745916820187');
-fbq('track', 'PageView');
+  window.loadCandyMetaPixel = function () {
+    if (window.candyMetaPixelLoaded || window.candyMetaConsent !== "accepted") return;
+    window.candyMetaPixelLoaded = true;
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;
+    s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}
+    (window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1649745916820187');
+    fbq('track', 'PageView');
+  };
 </script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1649745916820187&ev=PageView&noscript=1"
-/></noscript>
-<!-- End Meta Pixel Code -->
 
 </head>
 <body>
