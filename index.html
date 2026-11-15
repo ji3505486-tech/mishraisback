@@ -129,7 +129,44 @@
   </div>
   <div class="footer">🔒 <b>Official community link</b><br>Secure link • Opens Telegram</div>
 </main>
+
+<section class="privacy-consent" id="privacyConsent" role="dialog" aria-label="Privacy and tracking choices" aria-live="polite" hidden>
+  <p><strong>Privacy choices:</strong> Essential site functions and short-lived click diagnostics run to operate this page. With your permission, Meta Pixel will measure page visits and ad performance. Choose Accept to enable Meta Pixel or Reject to keep it off.</p>
+  <div class="privacy-actions">
+    <button class="privacy-accept" id="acceptTracking" type="button">Accept optional tracking</button>
+    <button class="privacy-reject" id="rejectTracking" type="button">Reject optional tracking</button>
+  </div>
+</section>
+
 <script>
+
+  // Meta Pixel is disabled until the visitor makes an explicit choice.
+  const consentPanel = document.getElementById('privacyConsent');
+  const consentKey = 'candy_meta_consent_v1';
+  function setTrackingConsent(choice) {
+    window.candyMetaConsent = choice;
+    try { localStorage.setItem(consentKey, choice); } catch (_) {}
+    consentPanel.hidden = true;
+    if (choice === 'accepted' && window.loadCandyMetaPixel) {
+      window.loadCandyMetaPixel();
+    }
+    if (choice === 'rejected') {
+      ['_fbp', '_fbc'].forEach((name) => {
+        document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
+      });
+    }
+  }
+  let savedConsent = null;
+  try { savedConsent = localStorage.getItem(consentKey); } catch (_) {}
+  window.candyMetaConsent = savedConsent === 'accepted' ? 'accepted' : 'rejected';
+  if (savedConsent === 'accepted') {
+    window.loadCandyMetaPixel();
+  } else if (savedConsent !== 'rejected') {
+    consentPanel.hidden = false;
+  }
+  document.getElementById('acceptTracking').addEventListener('click', () => setTrackingConsent('accepted'));
+  document.getElementById('rejectTracking').addEventListener('click', () => setTrackingConsent('rejected'));
+
   const colors = [
     {a:'#ff3b55', b:'#ff7a45', glow:'rgba(255,59,85,.32)', bg:['#170610','#35101f','#080d1b'], tint:'rgba(255,59,85,.13)', text:'#fff0f3', muted:'#ffd0d9', soft:'#e5a9b5'},
     {a:'#20d978', b:'#8de34f', glow:'rgba(32,217,120,.30)', bg:['#04180f','#103522','#06130e'], tint:'rgba(32,217,120,.13)', text:'#edfff4', muted:'#baf5d0', soft:'#91d7ae'},
