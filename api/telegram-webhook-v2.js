@@ -1,4 +1,4 @@
-// Fresh Telegram webhook endpoint (v2). Aggregate counts only; no member identifiers are stored or sent to Meta.
+// Telegram v2 webhook: aggregate member counts plus consented, invite-linked Meta CAPI events.
 const crypto = require("crypto");
 
 module.exports = async function handler(req, res) {
@@ -33,11 +33,9 @@ module.exports = async function handler(req, res) {
   if (update.update_id === undefined) return res.status(400).json({ ok: false, error: "Missing update_id" });
 
   try {
-    const once = await redis(["SET", "tg:v2:update:" + update.update_id, "1", "EX", "2592000", "NX"]);
-    if (once !== "OK") return res.status(200).json({ ok: true, duplicate: true });
-
     const day = new Date().toISOString().slice(0, 10);
     let eventType = null;
+    let acceptedUpdate = false;
 
     if (update.chat_join_request &&
         String(update.chat_join_request.chat && update.chat_join_request.chat.id) === String(channelId)) {
@@ -48,11 +46,16 @@ module.exports = async function handler(req, res) {
       const newStatus = update.chat_member.new_chat_member || {};
       const isMember = (m) => ["creator", "administrator", "member"].includes(m.status) ||
         (m.status === "restricted" && m.is_member === true);
-      if (!isMember(oldStatus) && isMember(newStatus)) eventType = "accepted_joins";
-      else if (isMember(oldStatus) && !isMember(newStatus)) eventType = "leaves";
+      if (!isMember(oldStatus) && isMember(newStatus)) {
+        eventType = "accepted_joins";
+        acceptedUpdate = true;
+      } else if (isMember(oldStatus) && !isMember(newStatus)) eventType = "leaves";
     }
 
-    if (eventType) {
+    // Count each Telegram update once. CAPI has a separate retry-safe idempotency key.
+    const countKey = "tg:v2:update:" + update.update_id;
+    const counted = await redis(["SET", countKey, "1", "EX", "2592000", "NX"]);
+    if (counted === "OK" && eventType) {
       const key = "tg:v2:daily:" + day + ":" + eventType;
       await redis(["INCR", key]);
       await redis(["EXPIRE", key, "7776000"]);
@@ -60,7 +63,60 @@ module.exports = async function handler(req, res) {
       await redis(["LPUSH", "tg:v2:recent", JSON.stringify({ type: eventType, date: day, at: new Date().toISOString() })]);
       await redis(["LTRIM", "tg:v2:recent", "0", "49"]);
     }
-    return res.status(200).json({ ok: true, tracked: Boolean(eventType), type: eventType });
+
+    let capi = "not_applicable";
+    if (acceptedUpdate) {
+      const inviteLink = update.chat_member.invite_link && update.chat_member.invite_link.invite_link;
+      if (inviteLink && process.env.META_CAPI_ACCESS_TOKEN && process.env.META_PIXEL_ID) {
+        const inviteKey = "tg:v2:invite:" + crypto.createHash("sha256").update(inviteLink).digest("hex");
+        const raw = await redis(["GET", inviteKey]);
+        let attribution = null;
+        try { attribution = raw ? JSON.parse(raw) : null; } catch (_) {}
+        if (attribution && attribution.consent === true && (attribution.fbp || attribution.fbc)) {
+          const capiKey = "tg:v2:capi:" + update.update_id;
+          const alreadySent = await redis(["GET", capiKey]);
+          if (alreadySent === "1") {
+            capi = "already_sent";
+          } else {
+            const userData = {};
+            if (attribution.fbp) userData.fbp = attribution.fbp;
+            if (attribution.fbc) userData.fbc = attribution.fbc;
+            const event = {
+              event_name: "CompleteRegistration",
+              event_time: Math.floor(Date.now() / 1000),
+              event_id: "tg-accepted-" + String(update.update_id),
+              action_source: "website",
+              event_source_url: "https://candy-is-live-1.vercel.app/",
+              user_data: userData
+            };
+            const payload = { data: [event] };
+            if (process.env.META_TEST_EVENT_CODE) payload.test_event_code = process.env.META_TEST_EVENT_CODE;
+            const version = process.env.META_GRAPH_API_VERSION || "v26.0";
+            const endpoint = "https://graph.facebook.com/" + version + "/" +
+              encodeURIComponent(process.env.META_PIXEL_ID) + "/events?access_token=" +
+              encodeURIComponent(process.env.META_CAPI_ACCESS_TOKEN);
+            const meta = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            const metaResult = await meta.json().catch(() => ({}));
+            if (!meta.ok || metaResult.error) {
+              capi = "send_failed";
+            } else {
+              await redis(["SET", capiKey, "1", "EX", "7776000"]);
+              capi = "sent";
+            }
+          }
+        } else {
+          capi = "no_consent_attribution";
+        }
+      } else {
+        capi = "no_invite_or_capi_config";
+      }
+    }
+
+    return res.status(200).json({ ok: true, tracked: Boolean(eventType), type: eventType, capi });
   } catch (_) {
     return res.status(503).json({ ok: false, error: "Tracking storage temporarily unavailable" });
   }
