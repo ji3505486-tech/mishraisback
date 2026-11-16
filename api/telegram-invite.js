@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   res.setHeader("Vary", "Cookie");
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
   const body = req.body || {};
-  if (body.consent !== true) return res.status(403).json({ ok: false, error: "Consent required" });
+  if (typeof body.consent !== 'boolean') return res.status(400).json({ ok: false, error: "Consent choice required" });
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const channelId = process.env.TELEGRAM_CHANNEL_ID;
@@ -20,9 +20,10 @@ module.exports = async function handler(req, res) {
     const s = typeof value === "string" ? value.slice(0, 500) : "";
     return s.startsWith(prefix) && /^[A-Za-z0-9._-]+$/.test(s) ? s : "";
   };
-  const fbp = cleanCookie(body.fbp, "fb.");
-  const fbc = cleanCookie(body.fbc, "fb.");
-  const attribution = { fbp, fbc, consent: true, created_at: Date.now() };
+  const consent = body.consent === true;
+  const fbp = consent ? cleanCookie(body.fbp, "fb.") : "";
+  const fbc = consent ? cleanCookie(body.fbc, "fb.") : "";
+  const attribution = { fbp, fbc, consent, created_at: Date.now() };
   const inviteName = "web-" + crypto.randomBytes(6).toString("hex");
 
   async function redis(parts) {
