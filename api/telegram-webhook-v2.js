@@ -81,16 +81,23 @@ module.exports = async function handler(req, res) {
             const userData = {};
             if (attribution.fbp) userData.fbp = attribution.fbp;
             if (attribution.fbc) userData.fbc = attribution.fbc;
+            const mode = process.env.META_CAPI_MODE || "";
+            const testCode = process.env.META_TEST_EVENT_CODE || "";
+            if (mode !== "test" && mode !== "live") {
+              capi = "capi_mode_not_configured";
+            } else if (mode === "test" && !testCode) {
+              capi = "test_event_code_missing";
+            } else {
             const event = {
               event_name: "CompleteRegistration",
-              event_time: Math.floor(Date.now() / 1000),
+              event_time: Number(update.chat_member.date) || Math.floor(Date.now() / 1000),
               event_id: "tg-accepted-" + String(update.update_id),
               action_source: "website",
               event_source_url: "https://candy-is-live-1.vercel.app/",
               user_data: userData
             };
             const payload = { data: [event] };
-            if (process.env.META_TEST_EVENT_CODE) payload.test_event_code = process.env.META_TEST_EVENT_CODE;
+            if (mode === "test") payload.test_event_code = testCode;
             const version = process.env.META_GRAPH_API_VERSION || "v26.0";
             const endpoint = "https://graph.facebook.com/" + version + "/" +
               encodeURIComponent(process.env.META_PIXEL_ID) + "/events?access_token=" +
@@ -107,6 +114,7 @@ module.exports = async function handler(req, res) {
               await redis(["SET", capiKey, "1", "EX", "7776000"]);
               capi = "sent";
             }
+            }
           }
         } else {
           capi = "no_consent_attribution";
@@ -116,6 +124,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    if (capi === "send_failed") return res.status(503).json({ ok: false, tracked: Boolean(eventType), type: eventType, capi });
     return res.status(200).json({ ok: true, tracked: Boolean(eventType), type: eventType, capi });
   } catch (_) {
     return res.status(503).json({ ok: false, error: "Tracking storage temporarily unavailable" });
