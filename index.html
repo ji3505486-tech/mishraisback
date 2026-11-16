@@ -117,7 +117,7 @@
   <h1 class="titleGlow">SURESHOOT BY CANDY</h1>
   <p class="sub">Join the community on Telegram</p>
 
-  <a class="join" id="joinBtn" href="https://t.me/+rNPglvGsx605N2E1" target="_blank" rel="noopener noreferrer">
+  <a class="join" id="joinBtn" href="#" aria-disabled="true" target="_blank" rel="noopener noreferrer">
     <span>✈</span><span>JOIN CHANNEL</span><span aria-hidden="true">→</span>
   </a>
   <p class="hint" id="hint" aria-live="polite">Tap JOIN CHANNEL when you are ready to open Telegram.</p>
@@ -150,7 +150,7 @@
     if (choice === 'accepted' && window.loadCandyMetaPixel) {
       window.loadCandyMetaPixel();
     }
-    if (choice === 'accepted') prepareUniqueTelegramInvite();
+    prepareUniqueTelegramInvite();
     if (choice === 'rejected') {
       ['_fbp', '_fbc'].forEach((name) => {
         document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
@@ -200,30 +200,34 @@
     setColors(colorIndex);
   }, 3000);
 
-  // Create a visitor-specific Telegram invite only after optional tracking consent.
+  // Create a request-to-join Telegram invite; Meta attribution is attached only with consent.
   let uniqueInvitePromise = null;
   function readCookie(name) {
     const part = document.cookie.split('; ').find((x) => x.startsWith(name + '='));
     return part ? decodeURIComponent(part.slice(name.length + 1)) : '';
   }
   function prepareUniqueTelegramInvite() {
-    if (window.candyMetaConsent !== 'accepted') return Promise.resolve(false);
     if (uniqueInvitePromise) return uniqueInvitePromise;
     uniqueInvitePromise = fetch('/api/telegram-invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        consent: true,
-        fbp: readCookie('_fbp'),
-        fbc: readCookie('_fbc')
+        consent: window.candyMetaConsent === 'accepted',
+        fbp: window.candyMetaConsent === 'accepted' ? readCookie('_fbp') : '',
+        fbc: window.candyMetaConsent === 'accepted' ? readCookie('_fbc') : ''
       })
     }).then(async (response) => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok || !data.invite_link) throw new Error('Invite link unavailable');
-      document.getElementById('joinBtn').href = data.invite_link;
+      const joinButton = document.getElementById('joinBtn');
+      joinButton.href = data.invite_link;
+      joinButton.dataset.inviteReady = 'true';
+      joinButton.setAttribute('aria-disabled', 'false');
+      document.getElementById('hint').textContent = 'Request link ready. Tap JOIN CHANNEL to request access.';
       return true;
     }).catch(() => {
       uniqueInvitePromise = null;
+      document.getElementById('hint').textContent = 'Request link is not ready yet. Please refresh and try again.';
       return false;
     });
     return uniqueInvitePromise;
@@ -235,6 +239,12 @@
     // Ignore script-generated clicks; keep genuine visitor clicks immediate.
     if (!event.isTrusted) {
       event.preventDefault();
+      return;
+    }
+    if (button.dataset.inviteReady !== 'true') {
+      event.preventDefault();
+      document.getElementById('hint').textContent = 'Please wait while the secure request link is prepared.';
+      prepareUniqueTelegramInvite();
       return;
     }
     // Stop accidental rapid repeat taps without delaying the first Telegram open.
