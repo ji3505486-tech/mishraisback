@@ -150,6 +150,7 @@
     if (choice === 'accepted' && window.loadCandyMetaPixel) {
       window.loadCandyMetaPixel();
     }
+    if (choice === 'accepted') prepareUniqueTelegramInvite();
     if (choice === 'rejected') {
       ['_fbp', '_fbc'].forEach((name) => {
         document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
@@ -161,6 +162,7 @@
   window.candyMetaConsent = savedConsent === 'accepted' ? 'accepted' : (savedConsent === 'rejected' ? 'rejected' : null);
   if (savedConsent === 'accepted') {
     window.loadCandyMetaPixel();
+    prepareUniqueTelegramInvite();
   } else if (savedConsent === 'rejected') {
     consentPanel.hidden = true;
   } else {
@@ -197,6 +199,35 @@
     colorIndex = (colorIndex + 1) % colors.length;
     setColors(colorIndex);
   }, 3000);
+
+  // Create a visitor-specific Telegram invite only after optional tracking consent.
+  let uniqueInvitePromise = null;
+  function readCookie(name) {
+    const part = document.cookie.split('; ').find((x) => x.startsWith(name + '='));
+    return part ? decodeURIComponent(part.slice(name.length + 1)) : '';
+  }
+  function prepareUniqueTelegramInvite() {
+    if (window.candyMetaConsent !== 'accepted') return Promise.resolve(false);
+    if (uniqueInvitePromise) return uniqueInvitePromise;
+    uniqueInvitePromise = fetch('/api/telegram-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        consent: true,
+        fbp: readCookie('_fbp'),
+        fbc: readCookie('_fbc')
+      })
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.invite_link) throw new Error('Invite link unavailable');
+      document.getElementById('joinBtn').href = data.invite_link;
+      return true;
+    }).catch(() => {
+      uniqueInvitePromise = null;
+      return false;
+    });
+    return uniqueInvitePromise;
+  }
 
   const button = document.getElementById('joinBtn');
   let lastJoinAttempt = 0;
