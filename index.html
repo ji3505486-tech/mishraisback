@@ -117,7 +117,7 @@
   <h1 class="titleGlow">SURESHOOT BY CANDY</h1>
   <p class="sub">Join the community on Telegram</p>
 
-  <a class="join" id="joinBtn" href="#" aria-disabled="true" target="_blank" rel="noopener noreferrer">
+  <a class="join" id="joinBtn" href="https://t.me/+rNPglvGsx605N2E1" aria-disabled="false" data-invite-ready="true" target="_blank" rel="noopener noreferrer">
     <span>✈</span><span>JOIN CHANNEL</span><span aria-hidden="true">→</span>
   </a>
   <p class="hint" id="hint" aria-live="polite">Tap JOIN CHANNEL when you are ready to open Telegram.</p>
@@ -251,12 +251,7 @@
       event.preventDefault();
       return;
     }
-    if (button.dataset.inviteReady !== 'true') {
-      event.preventDefault();
-      document.getElementById('hint').textContent = 'Please wait while the secure request link is prepared.';
-      prepareUniqueTelegramInvite();
-      return;
-    }
+    // The button always has a working Telegram fallback; the API may replace it with a unique link.
     // Stop accidental rapid repeat taps without delaying the first Telegram open.
     const now = Date.now();
     if (now - lastJoinAttempt < 1500) {
