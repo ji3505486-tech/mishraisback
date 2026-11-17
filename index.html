@@ -228,7 +228,12 @@
       return true;
     }).catch(() => {
       uniqueInvitePromise = null;
-      document.getElementById('hint').textContent = 'Request link is not ready yet. Please refresh and try again.';
+      // Keep the join button usable if the per-visitor invite API is temporarily unavailable.
+      const joinButton = document.getElementById('joinBtn');
+      joinButton.href = 'https://t.me/+rNPglvGsx605N2E1';
+      joinButton.dataset.inviteReady = 'true';
+      joinButton.setAttribute('aria-disabled', 'false');
+      document.getElementById('hint').textContent = 'Backup Telegram request link ready. Tap JOIN CHANNEL to continue.';
       return false;
     });
     return uniqueInvitePromise;
