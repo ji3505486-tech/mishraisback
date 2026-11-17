@@ -79,6 +79,8 @@
   .privacy-consent { position:fixed;z-index:9999;left:16px;right:16px;bottom:16px;margin:auto;max-width:680px;
     padding:14px 16px;border:1px solid #ffffff35;border-radius:14px;background:#101522f2;color:#f7f8fc;
     box-shadow:0 12px 40px #0009;text-align:left;font-size:12px;line-height:1.5;backdrop-filter:blur(12px); }
+  .privacy-consent[hidden] { display:none!important; }
+  .privacy-consent:not([hidden]) { display:block; }
   .privacy-consent p { margin:0 0 10px;color:#e7eaf2; }
   .privacy-consent a { color:#a9d7ff;text-decoration:underline; }
   .privacy-actions { display:flex;gap:8px;flex-wrap:wrap; }
@@ -86,6 +88,7 @@
   .privacy-accept { background:#eaf2ff;color:#111827; }
   .privacy-reject { background:transparent;color:#fff; }
   @media (max-width:480px) { .privacy-consent {left:10px;right:10px;bottom:10px;padding:12px;} .privacy-actions button {flex:1;} }
+  .privacy-settings-button { margin-top:10px;padding:6px 10px;border:1px solid #ffffff45;border-radius:8px;background:#ffffff12;color:var(--mutedText);font:inherit;font-size:10px;cursor:pointer; }
 
 </style>
 
@@ -127,7 +130,7 @@
     <span class="dot" style="--c:#27a8ff"></span>
     <span class="dot" style="--c:#b66bff"></span>
   </div>
-  <div class="footer">🔒 <b>Official community link</b><br>Secure link • Opens Telegram</div>
+  <div class="footer">🔒 <b>Official community link</b><br>Secure link • Opens Telegram<br><button class="privacy-settings-button" id="privacySettings" type="button">Privacy choices</button></div>
 </main>
 
 <section class="privacy-consent" id="privacyConsent" role="dialog" aria-label="Privacy and tracking choices" aria-live="polite" hidden>
@@ -143,14 +146,19 @@
   // Meta Pixel is disabled until the visitor makes an explicit choice.
   const consentPanel = document.getElementById('privacyConsent');
   const consentKey = 'candy_meta_consent_v1';
+  let uniqueInvitePromise = null;
   function setTrackingConsent(choice) {
     window.candyMetaConsent = choice;
     try { localStorage.setItem(consentKey, choice); } catch (_) {}
     consentPanel.hidden = true;
     if (choice === 'accepted' && window.loadCandyMetaPixel) {
       window.loadCandyMetaPixel();
+      uniqueInvitePromise = null;
+      prepareUniqueTelegramInviteAfterPixel();
+    } else {
+      uniqueInvitePromise = null;
+      prepareUniqueTelegramInvite();
     }
-    prepareUniqueTelegramInvite();
     if (choice === 'rejected') {
       ['_fbp', '_fbc'].forEach((name) => {
         document.cookie = name + '=; Max-Age=0; path=/; SameSite=Lax';
@@ -162,7 +170,7 @@
   window.candyMetaConsent = savedConsent === 'accepted' ? 'accepted' : (savedConsent === 'rejected' ? 'rejected' : null);
   if (savedConsent === 'accepted') {
     window.loadCandyMetaPixel();
-    prepareUniqueTelegramInvite();
+    prepareUniqueTelegramInviteAfterPixel();
   } else if (savedConsent === 'rejected') {
     consentPanel.hidden = true;
     prepareUniqueTelegramInvite();
@@ -171,6 +179,7 @@
   }
   document.getElementById('acceptTracking').addEventListener('click', () => setTrackingConsent('accepted'));
   document.getElementById('rejectTracking').addEventListener('click', () => setTrackingConsent('rejected'));
+  document.getElementById('privacySettings').addEventListener('click', () => { consentPanel.hidden = false; });
 
   const colors = [
     {a:'#ff3b55', b:'#ff7a45', glow:'rgba(255,59,85,.32)', bg:['#170610','#35101f','#080d1b'], tint:'rgba(255,59,85,.13)', text:'#fff0f3', muted:'#ffd0d9', soft:'#e5a9b5'},
@@ -202,10 +211,17 @@
   }, 3000);
 
   // Create a request-to-join Telegram invite; Meta attribution is attached only with consent.
-  let uniqueInvitePromise = null;
   function readCookie(name) {
     const part = document.cookie.split('; ').find((x) => x.startsWith(name + '='));
     return part ? decodeURIComponent(part.slice(name.length + 1)) : '';
+  }
+  async function prepareUniqueTelegramInviteAfterPixel() {
+    // Give Meta Pixel time to write its browser attribution cookies after consent.
+    const started = Date.now();
+    while (Date.now() - started < 2500 && !readCookie('_fbp') && !readCookie('_fbc')) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return prepareUniqueTelegramInvite();
   }
   function prepareUniqueTelegramInvite() {
     if (uniqueInvitePromise) return uniqueInvitePromise;
@@ -239,9 +255,8 @@
     return uniqueInvitePromise;
   }
 
-  // Prepare the request-to-join link as soon as the page loads, without waiting for a button click.
-  document.getElementById('hint').textContent = 'Preparing your Telegram request link...';
-  prepareUniqueTelegramInvite();
+  // The public fallback link remains usable while the visitor chooses privacy settings.
+  document.getElementById('hint').textContent = 'Choose your privacy option to prepare a request link, or open Telegram using the button.';
 
   const button = document.getElementById('joinBtn');
   let lastJoinAttempt = 0;
