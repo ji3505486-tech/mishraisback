@@ -234,6 +234,10 @@
     return uniqueInvitePromise;
   }
 
+  // Prepare the request-to-join link as soon as the page loads, without waiting for a button click.
+  document.getElementById('hint').textContent = 'Preparing your Telegram request link...';
+  prepareUniqueTelegramInvite();
+
   const button = document.getElementById('joinBtn');
   let lastJoinAttempt = 0;
   button.addEventListener('click', (event) => {
