@@ -89,6 +89,7 @@
   .privacy-reject { background:transparent;color:#fff; }
   @media (max-width:480px) { .privacy-consent {left:10px;right:10px;bottom:10px;padding:12px;} .privacy-actions button {flex:1;} }
   .privacy-settings-button { margin-top:10px;padding:6px 10px;border:1px solid #ffffff45;border-radius:8px;background:#ffffff12;color:var(--mutedText);font:inherit;font-size:10px;cursor:pointer; }
+  .privacy-settings-floating { position:fixed;z-index:9998;right:16px;bottom:16px;padding:10px 13px;border:1px solid #ffffff66;border-radius:999px;background:#101522f2;color:#fff;font:700 12px Inter,system-ui,sans-serif;box-shadow:0 6px 24px #0009;cursor:pointer; }
 
 </style>
 
@@ -132,6 +133,8 @@
   </div>
   <div class="footer">🔒 <b>Official community link</b><br>Secure link • Opens Telegram<br><button class="privacy-settings-button" id="privacySettings" type="button">Privacy choices</button></div>
 </main>
+
+<button class="privacy-settings-floating" id="privacySettingsFloating" type="button">Privacy settings</button>
 
 <section class="privacy-consent" id="privacyConsent" role="dialog" aria-label="Privacy and tracking choices" aria-live="polite" hidden>
   <p><strong>Privacy choices:</strong> Essential site functions and short-lived click diagnostics run to operate this page. With your permission, Meta Pixel will measure page visits and ad performance. Choose Accept to enable Meta Pixel or Reject to keep it off.</p>
@@ -180,6 +183,7 @@
   document.getElementById('acceptTracking').addEventListener('click', () => setTrackingConsent('accepted'));
   document.getElementById('rejectTracking').addEventListener('click', () => setTrackingConsent('rejected'));
   document.getElementById('privacySettings').addEventListener('click', () => { consentPanel.hidden = false; });
+  document.getElementById('privacySettingsFloating').addEventListener('click', () => { consentPanel.hidden = false; });
 
   const colors = [
     {a:'#ff3b55', b:'#ff7a45', glow:'rgba(255,59,85,.32)', bg:['#170610','#35101f','#080d1b'], tint:'rgba(255,59,85,.13)', text:'#fff0f3', muted:'#ffd0d9', soft:'#e5a9b5'},
