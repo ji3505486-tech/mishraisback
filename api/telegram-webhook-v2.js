@@ -65,6 +65,9 @@ module.exports = async function handler(req, res) {
     }
 
     let capi = "not_applicable";
+    let metaHttpStatus = null;
+    let metaEventsReceived = null;
+    let metaErrorCode = null;
     if (acceptedUpdate) {
       const inviteLink = update.chat_member.invite_link && update.chat_member.invite_link.invite_link;
       if (inviteLink && process.env.META_CAPI_ACCESS_TOKEN && process.env.META_PIXEL_ID) {
@@ -81,6 +84,7 @@ module.exports = async function handler(req, res) {
             const userData = {};
             if (attribution.fbp) userData.fbp = attribution.fbp;
             if (attribution.fbc) userData.fbc = attribution.fbc;
+            if (attribution.client_user_agent) userData.client_user_agent = attribution.client_user_agent;
             const mode = process.env.META_CAPI_MODE || "";
             const testCode = process.env.META_TEST_EVENT_CODE || "";
             if (mode !== "test" && mode !== "live") {
@@ -108,6 +112,9 @@ module.exports = async function handler(req, res) {
               body: JSON.stringify(payload)
             });
             const metaResult = await meta.json().catch(() => ({}));
+            metaHttpStatus = meta.status;
+            metaEventsReceived = Number.isFinite(Number(metaResult.events_received)) ? Number(metaResult.events_received) : null;
+            metaErrorCode = metaResult.error && metaResult.error.code ? metaResult.error.code : null;
             if (!meta.ok || metaResult.error) {
               capi = "send_failed";
             } else {
@@ -124,6 +131,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    console.info("telegram_webhook_v2_result", JSON.stringify({ update_id: update.update_id, type: eventType, accepted: acceptedUpdate, capi, meta_http_status: metaHttpStatus, meta_events_received: metaEventsReceived, meta_error_code: metaErrorCode }));
     if (capi === "send_failed") return res.status(503).json({ ok: false, tracked: Boolean(eventType), type: eventType, capi });
     return res.status(200).json({ ok: true, tracked: Boolean(eventType), type: eventType, capi });
   } catch (_) {
