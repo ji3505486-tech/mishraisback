@@ -23,7 +23,8 @@ module.exports = async function handler(req, res) {
   const consent = body.consent === true;
   const fbp = consent ? cleanCookie(body.fbp, "fb.") : "";
   const fbc = consent ? cleanCookie(body.fbc, "fb.") : "";
-  const attribution = { fbp, fbc, consent, created_at: Date.now() };
+  const clientUserAgent = consent ? String(req.headers["user-agent"] || "").slice(0, 1000) : "";
+  const attribution = { fbp, fbc, client_user_agent: clientUserAgent, consent, created_at: Date.now() };
   const inviteName = "web-" + crypto.randomBytes(6).toString("hex");
 
   async function redis(parts) {
